@@ -1,0 +1,168 @@
+# -*- coding: utf-8 -*-
+
+import sys
+import math
+import os
+import re
+import string
+from collections import Counter
+
+def set_global():
+    global uni_count
+    global bi_count
+    global tri_count
+    global quard_count
+    global r_count
+
+    uni_count = 0
+    bi_count = 0
+    tri_count = 0
+    quard_count = 0
+    r_count = 0
+
+def genarate_ngram(sentence, gram):
+
+    nngram_list = []
+    sentence_list=sentence.split()
+    i=len(sentence_list)
+    for j in range(0,i):
+        if (j+gram-1)<i:
+            str = ""
+            for k in range(j,j+gram):
+                str = str + sentence_list[k].lower() +" "
+
+            str = str.rstrip()
+            nngram_list.append(str)
+
+    return nngram_list
+
+def cal_precision(cand_sent,ref_sent,i,gram):
+    global uni_count
+    global bi_count
+    global tri_count
+    global quard_count
+    global r_count
+
+    p = 0
+    cand_list = genarate_ngram(cand_sent[i],gram)
+    if gram == 1:
+        uni_count = uni_count + len(cand_list)
+    elif gram == 2:
+        bi_count = bi_count + len(cand_list)
+    elif gram == 3:
+        tri_count = tri_count + len(cand_list)
+    else:
+        quard_count = quard_count + len(cand_list)
+
+    ref_gram_list=[]
+    cand_sent_count = len(cand_list)
+
+    for j in range(0,len(ref_sent)):
+        my_ref_list = genarate_ngram(ref_sent[j][i],gram)
+        ref_gram_list.append(my_ref_list)
+
+    cand_dict = Counter(cand_list)
+    for each_word in cand_dict:
+        cand_count = cand_dict[each_word]
+        max_ref_count = 0
+        temp_ref_count = 0
+        for j in range(0,len(ref_gram_list)):
+            temp_ref_dict = Counter(ref_gram_list[j])
+            if each_word not in temp_ref_dict:
+                temp_ref_count = 0
+            else:
+                temp_ref_count = temp_ref_dict[each_word]
+            if max_ref_count < temp_ref_count:
+                max_ref_count = temp_ref_count
+
+        if cand_count < max_ref_count:
+            p = p + cand_count
+        else:
+            p = p + max_ref_count
+
+    if len(cand_list) == 0:
+        return 0
+
+    return (p)
+
+def main():
+    global  r_count
+    # reference_file = open(sys.argv[2],'r')
+    reference_files = []
+    output = open('bleu_out.txt','w')
+
+    c = 0
+    with open(sys.argv[1],'r') as candidate_file:
+        candidate_sentence = candidate_file.readlines()
+
+    with open(sys.argv[1], 'r') as candidate_file:
+        for line in candidate_file:
+            word = line.split()
+            c = c + len(word)
+
+    if sys.argv[2].endswith('.txt'):
+        reference_file = open(sys.argv[2], 'r')
+        reference_files.append(sys.argv[2])
+    else:
+        for root, dirs, files in os.walk(sys.argv[2]):
+            for name in files:
+                reference_files.append(os.path.join(root,name))
+
+    reference_sentences = []
+
+    for each_file in reference_files:
+        each_reference_list = []
+        with open(each_file,'r') as file:
+            each_reference_list = (file.readlines())
+        reference_sentences.append(each_reference_list)
+
+    unigram = 0
+    bigram = 0
+    trigram = 0
+    quardgram = 0
+
+    set_global()
+
+    for i in range(0,len(candidate_sentence)):
+        min_diff = sys.maxint
+        ref_list_count = 0
+
+    # for i in range(1, 2):
+        # print cal_precision(c      c ccccccccccc ccandidate_sentence,reference_sentences,i,1)
+        unigram += float(cal_precision(candidate_sentence,reference_sentences,i,1))
+        bigram += float(cal_precision(candidate_sentence, reference_sentences, i, 2))
+        trigram += float(cal_precision(candidate_sentence, reference_sentences, i, 3))
+        quardgram += float(cal_precision(candidate_sentence, reference_sentences, i, 4))
+
+
+        for reference in reference_sentences:
+            some = len(genarate_ngram(reference[i], 1)) - len(genarate_ngram(candidate_sentence[i], 1))
+            #if some > 0:
+            if min_diff > some:
+                min_diff = some
+                ref_list_count = len(genarate_ngram(reference[i], 1))
+        r_count = r_count + ref_list_count
+
+    print c
+    print r_count
+
+    unigram = unigram / float(uni_count)
+    bigram = bigram / float(bi_count)
+    trigram = trigram / float(tri_count)
+    quardgram = quardgram / float(quard_count)
+
+    precision = math.log(unigram)+math.log(bigram)+math.log(trigram)+math.log(quardgram)
+
+
+    # precision = precision*0.25
+
+    bleu = math.exp(precision*0.25)
+
+    if c <= r_count:
+        bleu *= math.exp(1 - r_count/float(c))
+
+    # print math.exp(1 - r_count/float(c))
+    output.write(str(bleu))
+
+if __name__ == "__main__":
+    main()
