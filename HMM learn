@@ -1,0 +1,98 @@
+# -*- coding: utf-8 -*-
+import sys
+import math
+import os
+import re
+import string
+import pickle
+
+def main():
+    emission_mat={}
+    trans_mat={}
+    valid_tran={}
+    tag=[]
+
+    train_tagged = open(sys.argv[1], 'r',encoding="utf8")
+    for line in train_tagged:
+        wordlist = line.split()
+        index=0
+        tag_sentence=[]
+        tag_sentence.append('s0')
+        for word in wordlist:
+            splittedwords = word.rsplit('/', 1)
+            w = splittedwords[0].rstrip()
+            t = splittedwords[1]
+
+            tag_sentence.append(t)
+            if(t not in tag):
+                tag.append(t)
+
+            if(w in valid_tran):
+                if(t not in valid_tran[w]):
+                     valid_tran[w].append(t)
+            else:
+                tags=[]
+                tags.append(t)
+                valid_tran[w]=tags
+
+            if(t in emission_mat):
+                if(w in emission_mat[t]):
+                    emission_mat[t][w]+=1
+                else:
+                    emission_mat[t][w] = 1
+            else:
+                emission_mat[t] = {}
+                emission_mat[t][w] = 1
+
+        for next_tag in tag_sentence[1:]:
+            if(tag_sentence[index] in trans_mat):
+                if(next_tag in trans_mat[tag_sentence[index]]):
+                    trans_mat[tag_sentence[index]][next_tag] +=1
+                else:
+                    trans_mat[tag_sentence[index]][next_tag] = 1
+            else:
+                trans_mat[tag_sentence[index]] = {}
+                trans_mat[tag_sentence[index]][next_tag] = 1
+            index+=1
+
+    # print(trans_mat)
+    for item in trans_mat:
+        itemlist = trans_mat[item]
+        for each_tag in tag:
+            if(each_tag not in itemlist):
+                itemlist[each_tag]=1
+            else:
+                itemlist[each_tag]+=1
+        trans_mat[item] = itemlist
+
+    for part in trans_mat:
+        count=0
+        itemlist = trans_mat[part]
+        for item in itemlist:
+            count = count+itemlist[item]
+        for item in itemlist:
+            itemlist[item]=itemlist[item]/count
+        trans_mat[part] = itemlist
+
+    for part in emission_mat:
+        count =0
+        itemlist=emission_mat[part]
+        for item in itemlist:
+            count = count + itemlist[item]
+        for item in itemlist:
+            itemlist[item] = itemlist[item] / count
+        emission_mat[part]=itemlist
+
+    # print(len(trans_mat))
+    # print("emission")
+    # print(len(emission_mat))
+    # print(valid_tran)
+    # print(len(tag))
+
+    output = open('hmmmodel.txt', 'wb')
+    pickle.dump([trans_mat,emission_mat,valid_tran,tag], output)
+
+if __name__ == "__main__":
+    main()
+
+
